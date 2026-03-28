@@ -1,17 +1,23 @@
 using System.Windows;
+using Pam.Services;
 
 namespace Pam.Views;
 
 public partial class RecordingBorder : Window
 {
-    public RecordingBorder(Rect region)
+    /// <summary>
+    /// Takes a region in physical screen pixels (from PointToScreen)
+    /// and positions this window correctly accounting for DPI scaling.
+    /// </summary>
+    public RecordingBorder(Rect physicalRegion)
     {
         InitializeComponent();
 
-        // Add padding so the border sits outside the recorded region
-        Left = region.X - 3;
-        Top = region.Y - 3;
-        Width = region.Width + 6;
-        Height = region.Height + 6;
+        var logical = DpiHelper.PhysicalToLogical(physicalRegion);
+
+        Left = logical.X - 3;
+        Top = logical.Y - 3;
+        Width = logical.Width + 6;
+        Height = logical.Height + 6;
     }
 }

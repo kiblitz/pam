@@ -55,7 +55,8 @@ public class ScreenRecordService
         if (ffmpegPath == null)
             return null;
 
-        var args = $"-framerate 10 -i \"{_framesDir}\\frame_%06d.png\" -c:v libx264 -pix_fmt yuv420p -y \"{outputPath}\"";
+        // Use BMP input format for speed
+        var args = $"-framerate 10 -i \"{_framesDir}\\frame_%06d.bmp\" -c:v libx264 -pix_fmt yuv420p -preset ultrafast -y \"{outputPath}\"";
 
         var process = new Process
         {
@@ -70,24 +71,13 @@ public class ScreenRecordService
         };
 
         process.Start();
-        process.WaitForExit(30_000);
+        process.WaitForExit(60_000);
 
         // Clean up frames
         try { Directory.Delete(_framesDir, true); } catch { }
         _framesDir = null;
 
         return process.ExitCode == 0 ? outputPath : null;
-    }
-
-    public BitmapSource? GetFirstFrame()
-    {
-        if (_framesDir == null) return null;
-        var first = Path.Combine(_framesDir, "frame_000000.png");
-        if (!File.Exists(first)) return null;
-
-        using var stream = new FileStream(first, FileMode.Open, FileAccess.Read, FileShare.Read);
-        var decoder = new PngBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
-        return decoder.Frames[0];
     }
 
     private void CaptureLoop(CancellationToken ct)
@@ -107,14 +97,14 @@ public class ScreenRecordService
         {
             try
             {
-                using var bitmap = new Bitmap(w, h, PixelFormat.Format32bppArgb);
+                using var bitmap = new Bitmap(w, h, PixelFormat.Format24bppRgb);
                 using (var g = Graphics.FromImage(bitmap))
                 {
                     g.CopyFromScreen(x, y, 0, 0, new System.Drawing.Size(w, h));
                 }
 
-                var path = Path.Combine(_framesDir!, $"frame_{_frameCount:D6}.png");
-                bitmap.Save(path, ImageFormat.Png);
+                var path = Path.Combine(_framesDir!, $"frame_{_frameCount:D6}.bmp");
+                bitmap.Save(path, ImageFormat.Bmp);
                 Interlocked.Increment(ref _frameCount);
 
                 // ~10 fps
@@ -129,14 +119,29 @@ public class ScreenRecordService
 
     private static string? FindFfmpeg()
     {
-        // Check common locations
         string[] candidates =
         [
             "ffmpeg",
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Microsoft", "WinGet", "Links", "ffmpeg.exe"),
-            @"C:\ProgramData\chocolatey\bin\ffmpeg.exe",
+            "ffmpeg.exe",
         ];
+
+        // Also search common install locations
+        var wingetPackages = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Microsoft", "WinGet", "Packages");
+
+        if (Directory.Exists(wingetPackages))
+        {
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(wingetPackages, "ffmpeg.exe", SearchOption.AllDirectories))
+                {
+                    candidates = [file, .. candidates];
+                    break;
+                }
+            }
+            catch { }
+        }
 
         foreach (var candidate in candidates)
         {
@@ -151,6 +156,7 @@ public class ScreenRecordService
                         UseShellExecute = false,
                         CreateNoWindow = true,
                         RedirectStandardOutput = true,
+                        RedirectStandardError = true,
                     }
                 };
                 process.Start();
