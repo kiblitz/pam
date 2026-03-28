@@ -13,7 +13,9 @@
 
     <Window.ContextMenu>
         <ContextMenu>
-            <MenuItem Header="Refresh Now" Click="Refresh_Click"/>
+            <MenuItem Header="Home" Click="Home_Click"/>
+            <Separator/>
+            <MenuItem Header="Claude Usage" Click="ClaudeUsage_Click"/>
             <Separator/>
             <MenuItem Header="Exit" Click="Exit_Click"/>
         </ContextMenu>
@@ -24,100 +26,6 @@
             BorderBrush="#44FFFFFF"
             BorderThickness="1"
             Padding="16">
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="12"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="10"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-
-            <!-- Title -->
-            <TextBlock Grid.Row="0"
-                       Text="Claude Usage"
-                       FontSize="14" FontWeight="SemiBold"
-                       Foreground="#EEFFFFFF"/>
-
-            <!-- 5-Hour Window -->
-            <StackPanel Grid.Row="2">
-                <DockPanel Margin="0,0,0,3">
-                    <TextBlock DockPanel.Dock="Right" Foreground="#88FFFFFF" FontSize="10"
-                               Text="{Binding FiveHourRemainingText, StringFormat='resets {0}', Mode=OneWay}"/>
-                    <TextBlock Foreground="#AAFFFFFF" FontSize="11">
-                        <Run Text="5-hour: "/>
-                        <Run Text="{Binding FiveHourUtil, StringFormat='{}{0:F1}%', Mode=OneWay}"/>
-                    </TextBlock>
-                </DockPanel>
-                <!-- Layered progress bars: local approximation (translucent) behind OAuth (solid) -->
-                <Grid Height="6">
-                    <Border Background="#33FFFFFF" CornerRadius="3"/>
-                    <!-- Local approximation bar (translucent) -->
-                    <Border CornerRadius="3" HorizontalAlignment="Left"
-                            Background="#446EC6FF">
-                        <Border.Width>
-                            <MultiBinding Converter="{StaticResource PercentToWidthConverter}">
-                                <Binding Path="FiveHourLocalUtil" Mode="OneWay"/>
-                                <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Grid}" Mode="OneWay"/>
-                            </MultiBinding>
-                        </Border.Width>
-                    </Border>
-                    <!-- OAuth bar (solid) -->
-                    <Border CornerRadius="3" HorizontalAlignment="Left"
-                            Background="#FF6EC6FF">
-                        <Border.Width>
-                            <MultiBinding Converter="{StaticResource PercentToWidthConverter}">
-                                <Binding Path="FiveHourUtil" Mode="OneWay"/>
-                                <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Grid}" Mode="OneWay"/>
-                            </MultiBinding>
-                        </Border.Width>
-                    </Border>
-                </Grid>
-            </StackPanel>
-
-            <!-- 7-Day Window -->
-            <StackPanel Grid.Row="4">
-                <DockPanel Margin="0,0,0,3">
-                    <TextBlock DockPanel.Dock="Right" Foreground="#88FFFFFF" FontSize="10"
-                               Text="{Binding SevenDayRemainingText, StringFormat='resets {0}', Mode=OneWay}"/>
-                    <TextBlock Foreground="#AAFFFFFF" FontSize="11">
-                        <Run Text="7-day: "/>
-                        <Run Text="{Binding SevenDayUtil, StringFormat='{}{0:F1}%', Mode=OneWay}"/>
-                    </TextBlock>
-                </DockPanel>
-                <!-- Layered progress bars -->
-                <Grid Height="6">
-                    <Border Background="#33FFFFFF" CornerRadius="3"/>
-                    <!-- Local approximation bar (translucent) -->
-                    <Border CornerRadius="3" HorizontalAlignment="Left"
-                            Background="#448BE8A0">
-                        <Border.Width>
-                            <MultiBinding Converter="{StaticResource PercentToWidthConverter}">
-                                <Binding Path="SevenDayLocalUtil" Mode="OneWay"/>
-                                <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Grid}" Mode="OneWay"/>
-                            </MultiBinding>
-                        </Border.Width>
-                    </Border>
-                    <!-- OAuth bar (solid) -->
-                    <Border CornerRadius="3" HorizontalAlignment="Left"
-                            Background="#FF8BE8A0">
-                        <Border.Width>
-                            <MultiBinding Converter="{StaticResource PercentToWidthConverter}">
-                                <Binding Path="SevenDayUtil" Mode="OneWay"/>
-                                <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Grid}" Mode="OneWay"/>
-                            </MultiBinding>
-                        </Border.Width>
-                    </Border>
-                </Grid>
-            </StackPanel>
-
-            <!-- Status -->
-            <TextBlock Grid.Row="6"
-                       Text="{Binding StatusText, FallbackValue=Waiting..., Mode=OneWay}"
-                       Foreground="#66FFFFFF" FontSize="10"
-                       HorizontalAlignment="Right"/>
-        </Grid>
+        <ContentControl x:Name="ContentArea"/>
     </Border>
 </Window>
