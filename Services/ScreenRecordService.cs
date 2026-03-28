@@ -13,6 +13,7 @@ namespace Pam.Services;
 public class ScreenRecordService
 {
     private CancellationTokenSource? _cts;
+    private Task? _captureTask;
     private Rect _region;
     private int _frameCount;
     private DateTime _startTime;
@@ -55,13 +56,13 @@ public class ScreenRecordService
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardInput = true,
-                RedirectStandardError = true,
+                RedirectStandardError = false,
             }
         };
         _ffmpegProcess.Start();
 
         _cts = new CancellationTokenSource();
-        Task.Run(() => CaptureLoop(_cts.Token, w, h));
+        _captureTask = Task.Run(() => CaptureLoop(_cts.Token, w, h));
     }
 
     public string? StopRecording()
@@ -70,6 +71,10 @@ public class ScreenRecordService
             return null;
 
         _cts.Cancel();
+
+        // Wait for capture loop to finish writing before closing stdin
+        _captureTask?.Wait(5000);
+        _captureTask = null;
         _cts.Dispose();
         _cts = null;
 
