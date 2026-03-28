@@ -7,7 +7,7 @@ namespace Pam.Views;
 
 public partial class RegionSelector : Window
 {
-    private Point _startPoint;
+    private Point _startLocal;
     private bool _isDragging;
 
     public Rect SelectedRegion { get; private set; }
@@ -25,7 +25,7 @@ public partial class RegionSelector : Window
 
     private void OnMouseDown(object sender, MouseButtonEventArgs e)
     {
-        _startPoint = PointToScreen(e.GetPosition(this));
+        _startLocal = e.GetPosition(OverlayCanvas);
         _isDragging = true;
         SelectionRect.Visibility = Visibility.Visible;
         InstructionText.Visibility = Visibility.Collapsed;
@@ -36,16 +36,8 @@ public partial class RegionSelector : Window
     {
         if (!_isDragging) return;
 
-        var current = PointToScreen(e.GetPosition(this));
-        var x = Math.Min(_startPoint.X, current.X);
-        var y = Math.Min(_startPoint.Y, current.Y);
-        var w = Math.Abs(current.X - _startPoint.X);
-        var h = Math.Abs(current.Y - _startPoint.Y);
-
-        Canvas.SetLeft(SelectionRect, x);
-        Canvas.SetTop(SelectionRect, y);
-        SelectionRect.Width = w;
-        SelectionRect.Height = h;
+        var current = e.GetPosition(OverlayCanvas);
+        UpdateSelectionRect(_startLocal, current);
     }
 
     private void OnMouseUp(object sender, MouseButtonEventArgs e)
@@ -54,19 +46,35 @@ public partial class RegionSelector : Window
         _isDragging = false;
         Mouse.Capture(null);
 
-        var endPoint = PointToScreen(e.GetPosition(this));
-        var x = Math.Min(_startPoint.X, endPoint.X);
-        var y = Math.Min(_startPoint.Y, endPoint.Y);
-        var w = Math.Abs(endPoint.X - _startPoint.X);
-        var h = Math.Abs(endPoint.Y - _startPoint.Y);
+        var endLocal = e.GetPosition(OverlayCanvas);
+        var x = Math.Min(_startLocal.X, endLocal.X);
+        var y = Math.Min(_startLocal.Y, endLocal.Y);
+        var w = Math.Abs(endLocal.X - _startLocal.X);
+        var h = Math.Abs(endLocal.Y - _startLocal.Y);
 
         if (w > 5 && h > 5)
         {
-            SelectedRegion = new Rect(x, y, w, h);
+            // Convert local rect to screen coordinates for capture
+            var topLeft = OverlayCanvas.PointToScreen(new Point(x, y));
+            var bottomRight = OverlayCanvas.PointToScreen(new Point(x + w, y + h));
+            SelectedRegion = new Rect(topLeft, bottomRight);
             RegionSelected = true;
             DialogResult = true;
             Close();
         }
+    }
+
+    private void UpdateSelectionRect(Point start, Point end)
+    {
+        var x = Math.Min(start.X, end.X);
+        var y = Math.Min(start.Y, end.Y);
+        var w = Math.Abs(end.X - start.X);
+        var h = Math.Abs(end.Y - start.Y);
+
+        Canvas.SetLeft(SelectionRect, x);
+        Canvas.SetTop(SelectionRect, y);
+        SelectionRect.Width = w;
+        SelectionRect.Height = h;
     }
 
     private void OnKeyDown(object sender, KeyEventArgs e)
