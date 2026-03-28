@@ -45,7 +45,8 @@
                      CaretBrush="White" Padding="4,2"
                      HorizontalContentAlignment="Right"
                      TextChanged="DelayInput_TextChanged"
-                     GotFocus="DelayInput_GotFocus"/>
+                     GotFocus="DelayInput_GotFocus"
+                     PreviewMouseLeftButtonDown="DelayInput_PreviewMouseDown"/>
             <TextBlock Foreground="#AAFFFFFF" FontSize="11"
                        VerticalAlignment="Center" Margin="2,0,0,0" Text="s"/>
         </StackPanel>

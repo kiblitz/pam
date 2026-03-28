@@ -28,6 +28,15 @@ public partial class ScreenshotView : UserControl
         DelayInput.SelectAll();
     }
 
+    private void DelayInput_PreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (!DelayInput.IsKeyboardFocusWithin)
+        {
+            DelayInput.Focus();
+            e.Handled = true;
+        }
+    }
+
     private void DelayInput_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (DataContext == null) return;
