@@ -23,6 +23,11 @@ public partial class ScreenshotView : UserControl
         mainWindow.NavigateTo("home");
     }
 
+    private void DelayInput_GotFocus(object sender, RoutedEventArgs e)
+    {
+        DelayInput.SelectAll();
+    }
+
     private void DelayInput_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (DataContext == null) return;
