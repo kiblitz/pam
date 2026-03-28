@@ -13,10 +13,26 @@
         </Grid.RowDefinitions>
 
         <!-- Title -->
-        <TextBlock Grid.Row="0"
-                   Text="Claude Usage"
-                   FontSize="14" FontWeight="SemiBold"
-                   Foreground="#EEFFFFFF"/>
+        <DockPanel Grid.Row="0">
+            <Button DockPanel.Dock="Right" Click="Back_Click" Cursor="Hand"
+                    VerticalAlignment="Center" Padding="0" Margin="0"
+                    Background="Transparent" BorderThickness="0">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <TextBlock Text="&#x2190;" FontSize="14" Foreground="#88FFFFFF"
+                                   x:Name="Arrow"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Arrow" Property="Foreground" Value="#CCFFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            <TextBlock Text="Claude Usage"
+                       FontSize="14" FontWeight="SemiBold"
+                       Foreground="#EEFFFFFF"/>
+        </DockPanel>
 
         <!-- 5-Hour Window -->
         <StackPanel Grid.Row="2">
