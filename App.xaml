@@ -5,5 +5,7 @@
              StartupUri="MainWindow.xaml">
     <Application.Resources>
         <conv:PercentToWidthConverter x:Key="PercentToWidthConverter"/>
+        <conv:RecordingBrushConverter x:Key="RecordingBrushConverter"/>
+        <conv:RecordingTextConverter x:Key="RecordingTextConverter"/>
     </Application.Resources>
 </Application>

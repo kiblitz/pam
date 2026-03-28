@@ -9,13 +9,16 @@ namespace Pam;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _claudeUsageVm;
+    private readonly ScreenshotViewModel _screenshotVm;
     private readonly LandingView _landingView;
     private readonly ClaudeUsageView _claudeUsageView;
+    private readonly ScreenshotView _screenshotView;
     private bool _isHome;
 
     private static readonly List<AppEntry> Apps =
     [
         new() { Id = "claude-usage", Name = "Claude Usage", Description = "5-hour and 7-day usage monitoring" },
+        new() { Id = "screenshot", Name = "Screenshot", Description = "Capture screenshots and record screen" },
     ];
 
     public MainWindow()
@@ -23,6 +26,7 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         _claudeUsageVm = new MainViewModel();
+        _screenshotVm = new ScreenshotViewModel();
 
         _landingView = new LandingView
         {
@@ -32,6 +36,11 @@ public partial class MainWindow : Window
         _claudeUsageView = new ClaudeUsageView
         {
             DataContext = _claudeUsageVm
+        };
+
+        _screenshotView = new ScreenshotView
+        {
+            DataContext = _screenshotVm
         };
 
         // Start in bottom-right corner of primary screen
@@ -56,6 +65,7 @@ public partial class MainWindow : Window
         ContentArea.Content = id switch
         {
             "claude-usage" => _claudeUsageView,
+            "screenshot" => _screenshotView,
             _ => _landingView,
         };
     }
