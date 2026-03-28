@@ -13,3 +13,9 @@ public class UsageWindow
     public double Utilization { get; init; }
     public DateTimeOffset ResetsAt { get; init; }
 }
+
+public class LocalUsageInfo
+{
+    public long TokensLast5Hours { get; init; }
+    public long TokensLast7Days { get; init; }
+}

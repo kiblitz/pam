@@ -30,7 +30,7 @@ public partial class MainWindow : Window
 
     private void Refresh_Click(object sender, RoutedEventArgs e)
     {
-        _ = _viewModel.RefreshNow();
+        _ = _viewModel.RefreshAll();
     }
 
     private void Exit_Click(object sender, RoutedEventArgs e)

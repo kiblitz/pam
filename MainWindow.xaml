@@ -8,7 +8,7 @@
         Background="Transparent"
         Topmost="True"
         ResizeMode="NoResize"
-        ShowInTaskbar="True"
+        ShowInTaskbar="False"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
 
     <Window.ContextMenu>
@@ -37,8 +37,8 @@
 
             <!-- Title -->
             <TextBlock Grid.Row="0"
-                       Text="Pam"
-                       FontSize="16" FontWeight="SemiBold"
+                       Text="Claude Usage"
+                       FontSize="14" FontWeight="SemiBold"
                        Foreground="#EEFFFFFF"/>
 
             <!-- 5-Hour Window -->
@@ -51,28 +51,30 @@
                         <Run Text="{Binding FiveHourUtil, StringFormat='{}{0:F1}%', Mode=OneWay}"/>
                     </TextBlock>
                 </DockPanel>
-                <ProgressBar Height="6" Minimum="0" Maximum="100"
-                             Value="{Binding FiveHourUtil, Mode=OneWay}"
-                             Foreground="#FF6EC6FF" Background="#33FFFFFF" BorderThickness="0">
-                    <ProgressBar.Resources>
-                        <Style TargetType="ProgressBar">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="ProgressBar">
-                                        <Grid>
-                                            <Border Background="{TemplateBinding Background}" CornerRadius="3"/>
-                                            <Border x:Name="PART_Track"/>
-                                            <Border x:Name="PART_Indicator"
-                                                    Background="{TemplateBinding Foreground}"
-                                                    CornerRadius="3"
-                                                    HorizontalAlignment="Left"/>
-                                        </Grid>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </ProgressBar.Resources>
-                </ProgressBar>
+                <!-- Layered progress bars: local approximation (translucent) behind OAuth (solid) -->
+                <Grid Height="6">
+                    <Border Background="#33FFFFFF" CornerRadius="3"/>
+                    <!-- Local approximation bar (translucent) -->
+                    <Border CornerRadius="3" HorizontalAlignment="Left"
+                            Background="#446EC6FF">
+                        <Border.Width>
+                            <MultiBinding Converter="{StaticResource PercentToWidthConverter}">
+                                <Binding Path="FiveHourLocalUtil" Mode="OneWay"/>
+                                <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Grid}" Mode="OneWay"/>
+                            </MultiBinding>
+                        </Border.Width>
+                    </Border>
+                    <!-- OAuth bar (solid) -->
+                    <Border CornerRadius="3" HorizontalAlignment="Left"
+                            Background="#FF6EC6FF">
+                        <Border.Width>
+                            <MultiBinding Converter="{StaticResource PercentToWidthConverter}">
+                                <Binding Path="FiveHourUtil" Mode="OneWay"/>
+                                <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Grid}" Mode="OneWay"/>
+                            </MultiBinding>
+                        </Border.Width>
+                    </Border>
+                </Grid>
             </StackPanel>
 
             <!-- 7-Day Window -->
@@ -85,28 +87,30 @@
                         <Run Text="{Binding SevenDayUtil, StringFormat='{}{0:F1}%', Mode=OneWay}"/>
                     </TextBlock>
                 </DockPanel>
-                <ProgressBar Height="6" Minimum="0" Maximum="100"
-                             Value="{Binding SevenDayUtil, Mode=OneWay}"
-                             Foreground="#FF8BE8A0" Background="#33FFFFFF" BorderThickness="0">
-                    <ProgressBar.Resources>
-                        <Style TargetType="ProgressBar">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="ProgressBar">
-                                        <Grid>
-                                            <Border Background="{TemplateBinding Background}" CornerRadius="3"/>
-                                            <Border x:Name="PART_Track"/>
-                                            <Border x:Name="PART_Indicator"
-                                                    Background="{TemplateBinding Foreground}"
-                                                    CornerRadius="3"
-                                                    HorizontalAlignment="Left"/>
-                                        </Grid>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </ProgressBar.Resources>
-                </ProgressBar>
+                <!-- Layered progress bars -->
+                <Grid Height="6">
+                    <Border Background="#33FFFFFF" CornerRadius="3"/>
+                    <!-- Local approximation bar (translucent) -->
+                    <Border CornerRadius="3" HorizontalAlignment="Left"
+                            Background="#448BE8A0">
+                        <Border.Width>
+                            <MultiBinding Converter="{StaticResource PercentToWidthConverter}">
+                                <Binding Path="SevenDayLocalUtil" Mode="OneWay"/>
+                                <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Grid}" Mode="OneWay"/>
+                            </MultiBinding>
+                        </Border.Width>
+                    </Border>
+                    <!-- OAuth bar (solid) -->
+                    <Border CornerRadius="3" HorizontalAlignment="Left"
+                            Background="#FF8BE8A0">
+                        <Border.Width>
+                            <MultiBinding Converter="{StaticResource PercentToWidthConverter}">
+                                <Binding Path="SevenDayUtil" Mode="OneWay"/>
+                                <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Grid}" Mode="OneWay"/>
+                            </MultiBinding>
+                        </Border.Width>
+                    </Border>
+                </Grid>
             </StackPanel>
 
             <!-- Status -->
