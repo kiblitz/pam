@@ -34,24 +34,18 @@
                        Foreground="#EEFFFFFF"/>
         </DockPanel>
 
-        <!-- Delay selector -->
+        <!-- Delay input -->
         <DockPanel Grid.Row="2">
             <TextBlock Foreground="#AAFFFFFF" FontSize="11"
                        VerticalAlignment="Center" Text="Delay: "/>
-            <StackPanel Orientation="Horizontal">
-                <RadioButton x:Name="Delay0" Content="0s" IsChecked="True"
-                             Foreground="#AAFFFFFF" Margin="0,0,8,0"
-                             Checked="Delay_Changed" Tag="0"/>
-                <RadioButton x:Name="Delay3" Content="3s"
-                             Foreground="#AAFFFFFF" Margin="0,0,8,0"
-                             Checked="Delay_Changed" Tag="3"/>
-                <RadioButton x:Name="Delay5" Content="5s"
-                             Foreground="#AAFFFFFF" Margin="0,0,8,0"
-                             Checked="Delay_Changed" Tag="5"/>
-                <RadioButton x:Name="Delay10" Content="10s"
-                             Foreground="#AAFFFFFF"
-                             Checked="Delay_Changed" Tag="10"/>
-            </StackPanel>
+            <TextBlock Foreground="#AAFFFFFF" FontSize="11"
+                       VerticalAlignment="Center" DockPanel.Dock="Right" Text="s"/>
+            <TextBox x:Name="DelayInput" Text="0"
+                     Width="40" FontSize="11"
+                     Foreground="#DDFFFFFF" Background="#22FFFFFF"
+                     BorderBrush="#44FFFFFF" BorderThickness="1"
+                     CaretBrush="White" Padding="4,2"
+                     TextChanged="DelayInput_TextChanged"/>
         </DockPanel>
 
         <!-- Action buttons -->

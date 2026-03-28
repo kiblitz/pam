@@ -1,11 +1,15 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using Pam.ViewModels;
 
 namespace Pam.Views;
 
 public partial class ScreenshotView : UserControl
 {
+    private static readonly SolidColorBrush ValidBorder = new(Color.FromArgb(0x44, 0xFF, 0xFF, 0xFF));
+    private static readonly SolidColorBrush InvalidBorder = new(Color.FromArgb(0xAA, 0xFF, 0x44, 0x44));
+
     public ScreenshotView()
     {
         InitializeComponent();
@@ -19,10 +23,20 @@ public partial class ScreenshotView : UserControl
         mainWindow.NavigateTo("home");
     }
 
-    private void Delay_Changed(object sender, RoutedEventArgs e)
+    private void DelayInput_TextChanged(object sender, TextChangedEventArgs e)
     {
-        if (sender is RadioButton rb && rb.Tag is string tag && int.TryParse(tag, out var seconds))
+        if (DataContext == null) return;
+
+        var text = DelayInput.Text.Trim();
+        if (int.TryParse(text, out var seconds) && seconds >= 0 && seconds <= 60)
+        {
             Vm.DelaySeconds = seconds;
+            DelayInput.BorderBrush = ValidBorder;
+        }
+        else
+        {
+            DelayInput.BorderBrush = InvalidBorder;
+        }
     }
 
     private void Capture_Click(object sender, RoutedEventArgs e)
