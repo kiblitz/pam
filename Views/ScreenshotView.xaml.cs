@@ -9,6 +9,7 @@ public partial class ScreenshotView : UserControl
 {
     private static readonly SolidColorBrush ValidBorder = new(Color.FromArgb(0x44, 0xFF, 0xFF, 0xFF));
     private static readonly SolidColorBrush InvalidBorder = new(Color.FromArgb(0xAA, 0xFF, 0x44, 0x44));
+    private bool _delayValid = true;
 
     public ScreenshotView()
     {
@@ -46,21 +47,25 @@ public partial class ScreenshotView : UserControl
         {
             Vm.DelaySeconds = seconds;
             DelayInput.BorderBrush = ValidBorder;
+            _delayValid = true;
         }
         else
         {
             DelayInput.BorderBrush = InvalidBorder;
+            _delayValid = false;
         }
     }
 
     private void Capture_Click(object sender, RoutedEventArgs e)
     {
+        if (!_delayValid) return;
         var window = Window.GetWindow(this)!;
         _ = Vm.CaptureScreenshot(window);
     }
 
     private void Record_Click(object sender, RoutedEventArgs e)
     {
+        if (!_delayValid && !Vm.IsRecording) return;
         var window = Window.GetWindow(this)!;
         _ = Vm.StartOrStopRecording(window);
     }
