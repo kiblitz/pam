@@ -21,13 +21,14 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
     // We calibrate these when we get an OAuth response.
     private double _tokensPerPercent5h;
     private double _tokensPerPercent7d;
+    private DateTimeOffset _lastOAuthFetch;
 
     public MainViewModel()
     {
         _oauthService = new ClaudeUsageService();
         _localService = new LocalUsageService();
 
-        _oauthPollTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(30) };
+        _oauthPollTimer = new DispatcherTimer { Interval = PollInterval };
         _oauthPollTimer.Tick += async (_, _) => await RefreshOAuth();
 
         _localPollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
@@ -104,9 +105,25 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
         _oauthPollTimer.Start();
         _localPollTimer.Start();
         _countdownTimer.Start();
+
+        // Load cached OAuth data if available
+        var cached = UsageCache.Load();
+        if (cached != null)
+        {
+            ApplyOAuthData(cached.Value.Info);
+            _lastOAuthFetch = cached.Value.FetchedAt;
+            StatusText = $"Cached {cached.Value.FetchedAt.ToLocalTime():HH:mm:ss}";
+        }
+
         RefreshLocal();
-        _ = RefreshOAuth();
+
+        // Only fetch from API if cache is stale (older than poll interval)
+        var cacheAge = DateTimeOffset.UtcNow - _lastOAuthFetch;
+        if (cacheAge > PollInterval)
+            _ = RefreshOAuth();
     }
+
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(30);
 
     public void Stop()
     {
@@ -128,26 +145,34 @@ public class MainViewModel : INotifyPropertyChanged, IDisposable
             StatusText = "Fetching...";
             var info = await _oauthService.GetUsageAsync();
 
-            FiveHourUtil = info.FiveHour.Utilization;
-            SevenDayUtil = info.SevenDay.Utilization;
-            _fiveHourReset = info.FiveHour.ResetsAt;
-            _sevenDayReset = info.SevenDay.ResetsAt;
-            HasOAuthData = true;
+            _lastOAuthFetch = DateTimeOffset.UtcNow;
+            ApplyOAuthData(info);
+            UsageCache.Save(info, _lastOAuthFetch);
 
-            // Calibrate local-to-percent ratio
-            var local = _localService.GetLocalUsage();
-            if (info.FiveHour.Utilization > 0 && local.TokensLast5Hours > 0)
-                _tokensPerPercent5h = local.TokensLast5Hours / info.FiveHour.Utilization;
-            if (info.SevenDay.Utilization > 0 && local.TokensLast7Days > 0)
-                _tokensPerPercent7d = local.TokensLast7Days / info.SevenDay.Utilization;
-
-            UpdateCountdowns();
             StatusText = $"Updated {DateTimeOffset.Now:HH:mm:ss}";
         }
         catch (Exception ex)
         {
             StatusText = $"OAuth: {ex.Message}";
         }
+    }
+
+    private void ApplyOAuthData(Models.UsageInfo info)
+    {
+        FiveHourUtil = info.FiveHour.Utilization;
+        SevenDayUtil = info.SevenDay.Utilization;
+        _fiveHourReset = info.FiveHour.ResetsAt;
+        _sevenDayReset = info.SevenDay.ResetsAt;
+        HasOAuthData = true;
+
+        // Calibrate local-to-percent ratio
+        var local = _localService.GetLocalUsage();
+        if (info.FiveHour.Utilization > 0 && local.TokensLast5Hours > 0)
+            _tokensPerPercent5h = local.TokensLast5Hours / info.FiveHour.Utilization;
+        if (info.SevenDay.Utilization > 0 && local.TokensLast7Days > 0)
+            _tokensPerPercent7d = local.TokensLast7Days / info.SevenDay.Utilization;
+
+        UpdateCountdowns();
     }
 
     private void RefreshLocal()
