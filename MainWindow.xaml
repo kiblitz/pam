@@ -1,0 +1,119 @@
+<Window x:Class="Pam.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Pam"
+        Width="280" Height="180"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ResizeMode="NoResize"
+        ShowInTaskbar="True"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+
+    <Window.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="Refresh Now" Click="Refresh_Click"/>
+            <Separator/>
+            <MenuItem Header="Exit" Click="Exit_Click"/>
+        </ContextMenu>
+    </Window.ContextMenu>
+
+    <Border CornerRadius="16"
+            Background="#DD1E1E2E"
+            BorderBrush="#44FFFFFF"
+            BorderThickness="1"
+            Padding="16">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="12"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="10"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title -->
+            <TextBlock Grid.Row="0"
+                       Text="Pam"
+                       FontSize="16" FontWeight="SemiBold"
+                       Foreground="#EEFFFFFF"/>
+
+            <!-- 5-Hour Window -->
+            <StackPanel Grid.Row="2">
+                <DockPanel Margin="0,0,0,3">
+                    <TextBlock DockPanel.Dock="Right" Foreground="#88FFFFFF" FontSize="10"
+                               Text="{Binding FiveHourRemainingText, StringFormat='resets {0}', Mode=OneWay}"/>
+                    <TextBlock Foreground="#AAFFFFFF" FontSize="11">
+                        <Run Text="5-hour: "/>
+                        <Run Text="{Binding FiveHourUtil, StringFormat='{}{0:F1}%', Mode=OneWay}"/>
+                    </TextBlock>
+                </DockPanel>
+                <ProgressBar Height="6" Minimum="0" Maximum="100"
+                             Value="{Binding FiveHourUtil, Mode=OneWay}"
+                             Foreground="#FF6EC6FF" Background="#33FFFFFF" BorderThickness="0">
+                    <ProgressBar.Resources>
+                        <Style TargetType="ProgressBar">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ProgressBar">
+                                        <Grid>
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="3"/>
+                                            <Border x:Name="PART_Track"/>
+                                            <Border x:Name="PART_Indicator"
+                                                    Background="{TemplateBinding Foreground}"
+                                                    CornerRadius="3"
+                                                    HorizontalAlignment="Left"/>
+                                        </Grid>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ProgressBar.Resources>
+                </ProgressBar>
+            </StackPanel>
+
+            <!-- 7-Day Window -->
+            <StackPanel Grid.Row="4">
+                <DockPanel Margin="0,0,0,3">
+                    <TextBlock DockPanel.Dock="Right" Foreground="#88FFFFFF" FontSize="10"
+                               Text="{Binding SevenDayRemainingText, StringFormat='resets {0}', Mode=OneWay}"/>
+                    <TextBlock Foreground="#AAFFFFFF" FontSize="11">
+                        <Run Text="7-day: "/>
+                        <Run Text="{Binding SevenDayUtil, StringFormat='{}{0:F1}%', Mode=OneWay}"/>
+                    </TextBlock>
+                </DockPanel>
+                <ProgressBar Height="6" Minimum="0" Maximum="100"
+                             Value="{Binding SevenDayUtil, Mode=OneWay}"
+                             Foreground="#FF8BE8A0" Background="#33FFFFFF" BorderThickness="0">
+                    <ProgressBar.Resources>
+                        <Style TargetType="ProgressBar">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ProgressBar">
+                                        <Grid>
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="3"/>
+                                            <Border x:Name="PART_Track"/>
+                                            <Border x:Name="PART_Indicator"
+                                                    Background="{TemplateBinding Foreground}"
+                                                    CornerRadius="3"
+                                                    HorizontalAlignment="Left"/>
+                                        </Grid>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ProgressBar.Resources>
+                </ProgressBar>
+            </StackPanel>
+
+            <!-- Status -->
+            <TextBlock Grid.Row="6"
+                       Text="{Binding StatusText, FallbackValue=Waiting..., Mode=OneWay}"
+                       Foreground="#66FFFFFF" FontSize="10"
+                       HorizontalAlignment="Right"/>
+        </Grid>
+    </Border>
+</Window>
