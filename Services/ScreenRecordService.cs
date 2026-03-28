@@ -1,32 +1,28 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
-using System.Runtime.InteropServices;
+using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 
 namespace Pam.Services;
 
 public class ScreenRecordService
 {
-    private CancellationTokenSource? _cts;
-    private Task? _captureTask;
-    private Rect _region;
-    private int _frameCount;
-    private DateTime _startTime;
     private Process? _ffmpegProcess;
     private string? _outputPath;
+    private DateTime _startTime;
 
-    public bool IsRecording => _cts != null;
+    public bool IsRecording => _ffmpegProcess != null && !_ffmpegProcess.HasExited;
     public TimeSpan Elapsed => IsRecording ? DateTime.UtcNow - _startTime : TimeSpan.Zero;
 
-    public void StartRecording(Rect region)
+    public bool StartRecording(Rect region, string? audioDevice)
     {
-        _region = region;
-        _frameCount = 0;
+        var ffmpegPath = FindFfmpeg();
+        if (ffmpegPath == null)
+            return false;
+
         _startTime = DateTime.UtcNow;
 
         var outputDir = Path.Combine(
@@ -34,18 +30,23 @@ public class ScreenRecordService
         Directory.CreateDirectory(outputDir);
         _outputPath = Path.Combine(outputDir, $"recording-{DateTime.Now:yyyyMMdd-HHmmss}.mp4");
 
-        var w = (int)_region.Width;
-        var h = (int)_region.Height;
-        // ffmpeg needs even dimensions
+        var w = (int)region.Width;
+        var h = (int)region.Height;
+        // libx264 needs even dimensions
         w = w % 2 == 0 ? w : w - 1;
         h = h % 2 == 0 ? h : h - 1;
 
-        var ffmpegPath = FindFfmpeg();
-        if (ffmpegPath == null)
-            return;
+        var args = $"-f gdigrab -framerate 15 -offset_x {(int)region.X} -offset_y {(int)region.Y} -video_size {w}x{h} -i desktop";
 
-        // Pipe raw BGRA frames to ffmpeg via stdin
-        var args = $"-f rawvideo -pix_fmt bgra -s {w}x{h} -r 10 -i pipe:0 -c:v libx264 -pix_fmt yuv420p -preset ultrafast -y \"{_outputPath}\"";
+        if (!string.IsNullOrEmpty(audioDevice))
+            args += $" -f dshow -i audio=\"{audioDevice}\"";
+
+        args += $" -c:v libx264 -crf 20 -preset fast -pix_fmt yuv420p";
+
+        if (!string.IsNullOrEmpty(audioDevice))
+            args += " -c:a aac";
+
+        args += $" -y \"{_outputPath}\"";
 
         _ffmpegProcess = new Process
         {
@@ -56,102 +57,82 @@ public class ScreenRecordService
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardInput = true,
-                RedirectStandardError = false,
             }
         };
         _ffmpegProcess.Start();
-
-        _cts = new CancellationTokenSource();
-        _captureTask = Task.Run(() => CaptureLoop(_cts.Token, w, h));
+        return true;
     }
 
     public string? StopRecording()
     {
-        if (_cts == null || _ffmpegProcess == null)
+        if (_ffmpegProcess == null)
             return null;
 
-        _cts.Cancel();
+        // Send 'q' to ffmpeg to gracefully stop
+        try
+        {
+            _ffmpegProcess.StandardInput.Write("q");
+            _ffmpegProcess.StandardInput.Flush();
+        }
+        catch { }
 
-        // Wait for capture loop to finish writing before closing stdin
-        _captureTask?.Wait(5000);
-        _captureTask = null;
-        _cts.Dispose();
-        _cts = null;
-
-        // Close stdin to signal ffmpeg to finish encoding
-        try { _ffmpegProcess.StandardInput.BaseStream.Close(); } catch { }
-        _ffmpegProcess.WaitForExit(15_000);
+        if (!_ffmpegProcess.WaitForExit(10_000))
+        {
+            try { _ffmpegProcess.Kill(); } catch { }
+        }
 
         var exitCode = _ffmpegProcess.ExitCode;
         _ffmpegProcess.Dispose();
         _ffmpegProcess = null;
 
-        if (exitCode != 0 || _frameCount == 0)
-            return null;
+        if (_outputPath != null && File.Exists(_outputPath) && new FileInfo(_outputPath).Length > 0)
+            return _outputPath;
 
-        return _outputPath;
+        return null;
     }
 
-    private void CaptureLoop(CancellationToken ct, int w, int h)
+    public static List<string> ListAudioDevices()
     {
-        if (w <= 0 || h <= 0) return;
+        var ffmpegPath = FindFfmpeg();
+        if (ffmpegPath == null)
+            return [];
 
-        var x = (int)_region.X;
-        var y = (int)_region.Y;
-        var stride = w * 4; // BGRA = 4 bytes per pixel
-        var bufferSize = stride * h;
-        var buffer = new byte[bufferSize];
-
-        var stream = _ffmpegProcess?.StandardInput.BaseStream;
-        if (stream == null) return;
-
-        while (!ct.IsCancellationRequested)
+        var process = new Process
         {
-            try
+            StartInfo = new ProcessStartInfo
             {
-                using var bitmap = new Bitmap(w, h, PixelFormat.Format32bppArgb);
-                using (var g = Graphics.FromImage(bitmap))
-                {
-                    g.CopyFromScreen(x, y, 0, 0, new System.Drawing.Size(w, h));
-                }
-
-                // Extract raw pixel data
-                var bmpData = bitmap.LockBits(
-                    new Rectangle(0, 0, w, h),
-                    ImageLockMode.ReadOnly,
-                    PixelFormat.Format32bppArgb);
-
-                try
-                {
-                    // Copy row by row in case strides differ
-                    for (var row = 0; row < h; row++)
-                    {
-                        Marshal.Copy(bmpData.Scan0 + row * bmpData.Stride, buffer, row * stride, stride);
-                    }
-                }
-                finally
-                {
-                    bitmap.UnlockBits(bmpData);
-                }
-
-                stream.Write(buffer, 0, bufferSize);
-                Interlocked.Increment(ref _frameCount);
-
-                // ~10 fps
-                Thread.Sleep(100);
+                FileName = ffmpegPath,
+                Arguments = "-f dshow -list_devices true -i dummy",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardError = true,
             }
-            catch
+        };
+        process.Start();
+        var output = process.StandardError.ReadToEnd();
+        process.WaitForExit(5000);
+
+        var devices = new List<string>();
+        var lines = output.Split('\n');
+
+        foreach (var line in lines)
+        {
+            if (line.Contains("(audio)"))
             {
-                break;
+                var start = line.IndexOf('"');
+                var end = line.IndexOf('"', start + 1);
+                if (start >= 0 && end > start)
+                    devices.Add(line[(start + 1)..end]);
             }
         }
+
+        return devices;
     }
 
     private static string? FindFfmpeg()
     {
         string[] candidates = ["ffmpeg", "ffmpeg.exe"];
 
-        // Search WinGet packages
         var wingetPackages = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Microsoft", "WinGet", "Packages");

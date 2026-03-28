@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -13,12 +14,16 @@ public class ScreenshotViewModel : INotifyPropertyChanged
 {
     private readonly ScreenRecordService _recorder = new();
     private readonly DispatcherTimer _elapsedTimer;
+
     private RecordingBorder? _borderWindow;
 
     public ScreenshotViewModel()
     {
         _elapsedTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _elapsedTimer.Tick += (_, _) => UpdateElapsed();
+
+        AudioDevices = ["(none)", .. ScreenRecordService.ListAudioDevices()];
+        SelectedAudioDevice = AudioDevices.Count > 1 ? AudioDevices[1] : AudioDevices[0];
     }
 
     private int _delaySeconds;
@@ -40,6 +45,15 @@ public class ScreenshotViewModel : INotifyPropertyChanged
     {
         get => _isRecording;
         private set => SetField(ref _isRecording, value);
+    }
+
+    public List<string> AudioDevices { get; }
+
+    private string _selectedAudioDevice = "(none)";
+    public string SelectedAudioDevice
+    {
+        get => _selectedAudioDevice;
+        set => SetField(ref _selectedAudioDevice, value);
     }
 
     public async Task CaptureScreenshot(Window owner)
@@ -77,22 +91,21 @@ public class ScreenshotViewModel : INotifyPropertyChanged
         {
             _elapsedTimer.Stop();
             IsRecording = false;
+            StatusText = "Finishing...";
 
             _borderWindow?.Close();
             _borderWindow = null;
 
-            StatusText = "Encoding...";
             var outputPath = await Task.Run(() => _recorder.StopRecording());
 
             if (outputPath != null)
             {
-                // Copy file path to clipboard so it can be pasted
                 Clipboard.SetFileDropList([outputPath]);
-                StatusText = $"Saved! ({outputPath})";
+                StatusText = $"Saved!";
             }
             else
             {
-                StatusText = "Encoding failed (is ffmpeg installed?)";
+                StatusText = "Recording failed (is ffmpeg installed?)";
             }
 
             owner.Show();
@@ -112,11 +125,19 @@ public class ScreenshotViewModel : INotifyPropertyChanged
         if (DelaySeconds > 0)
             await RunCountdown(DelaySeconds);
 
-        _recorder.StartRecording(region.Value);
+        var audioDevice = SelectedAudioDevice == "(none)" ? null : SelectedAudioDevice;
+        var started = _recorder.StartRecording(region.Value, audioDevice);
+
+        if (!started)
+        {
+            StatusText = "Failed to start (is ffmpeg installed?)";
+            owner.Show();
+            return;
+        }
+
         IsRecording = true;
         _elapsedTimer.Start();
 
-        // Show border around recording region
         _borderWindow = new RecordingBorder(region.Value);
         _borderWindow.Show();
 
