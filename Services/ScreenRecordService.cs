@@ -3,10 +3,10 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Media.Imaging;
 
 namespace Pam.Services;
 
@@ -14,9 +14,10 @@ public class ScreenRecordService
 {
     private CancellationTokenSource? _cts;
     private Rect _region;
-    private string? _framesDir;
     private int _frameCount;
     private DateTime _startTime;
+    private Process? _ffmpegProcess;
+    private string? _outputPath;
 
     public bool IsRecording => _cts != null;
     public TimeSpan Elapsed => IsRecording ? DateTime.UtcNow - _startTime : TimeSpan.Zero;
@@ -27,38 +28,25 @@ public class ScreenRecordService
         _frameCount = 0;
         _startTime = DateTime.UtcNow;
 
-        _framesDir = Path.Combine(Path.GetTempPath(), "Pam", $"rec-{DateTime.Now:yyyyMMdd-HHmmss}");
-        Directory.CreateDirectory(_framesDir);
-
-        _cts = new CancellationTokenSource();
-        Task.Run(() => CaptureLoop(_cts.Token));
-    }
-
-    public string? StopRecording()
-    {
-        if (_cts == null || _framesDir == null)
-            return null;
-
-        _cts.Cancel();
-        _cts.Dispose();
-        _cts = null;
-
-        if (_frameCount == 0)
-            return null;
-
         var outputDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Pam");
         Directory.CreateDirectory(outputDir);
-        var outputPath = Path.Combine(outputDir, $"recording-{DateTime.Now:yyyyMMdd-HHmmss}.mp4");
+        _outputPath = Path.Combine(outputDir, $"recording-{DateTime.Now:yyyyMMdd-HHmmss}.mp4");
+
+        var w = (int)_region.Width;
+        var h = (int)_region.Height;
+        // ffmpeg needs even dimensions
+        w = w % 2 == 0 ? w : w - 1;
+        h = h % 2 == 0 ? h : h - 1;
 
         var ffmpegPath = FindFfmpeg();
         if (ffmpegPath == null)
-            return null;
+            return;
 
-        // Use BMP input format for speed
-        var args = $"-framerate 10 -i \"{_framesDir}\\frame_%06d.bmp\" -c:v libx264 -pix_fmt yuv420p -preset ultrafast -y \"{outputPath}\"";
+        // Pipe raw BGRA frames to ffmpeg via stdin
+        var args = $"-f rawvideo -pix_fmt bgra -s {w}x{h} -r 10 -i pipe:0 -c:v libx264 -pix_fmt yuv420p -preset ultrafast -y \"{_outputPath}\"";
 
-        var process = new Process
+        _ffmpegProcess = new Process
         {
             StartInfo = new ProcessStartInfo
             {
@@ -66,45 +54,82 @@ public class ScreenRecordService
                 Arguments = args,
                 UseShellExecute = false,
                 CreateNoWindow = true,
+                RedirectStandardInput = true,
                 RedirectStandardError = true,
             }
         };
+        _ffmpegProcess.Start();
 
-        process.Start();
-        process.WaitForExit(60_000);
-
-        // Clean up frames
-        try { Directory.Delete(_framesDir, true); } catch { }
-        _framesDir = null;
-
-        return process.ExitCode == 0 ? outputPath : null;
+        _cts = new CancellationTokenSource();
+        Task.Run(() => CaptureLoop(_cts.Token, w, h));
     }
 
-    private void CaptureLoop(CancellationToken ct)
+    public string? StopRecording()
     {
+        if (_cts == null || _ffmpegProcess == null)
+            return null;
+
+        _cts.Cancel();
+        _cts.Dispose();
+        _cts = null;
+
+        // Close stdin to signal ffmpeg to finish encoding
+        try { _ffmpegProcess.StandardInput.BaseStream.Close(); } catch { }
+        _ffmpegProcess.WaitForExit(15_000);
+
+        var exitCode = _ffmpegProcess.ExitCode;
+        _ffmpegProcess.Dispose();
+        _ffmpegProcess = null;
+
+        if (exitCode != 0 || _frameCount == 0)
+            return null;
+
+        return _outputPath;
+    }
+
+    private void CaptureLoop(CancellationToken ct, int w, int h)
+    {
+        if (w <= 0 || h <= 0) return;
+
         var x = (int)_region.X;
         var y = (int)_region.Y;
-        var w = (int)_region.Width;
-        var h = (int)_region.Height;
+        var stride = w * 4; // BGRA = 4 bytes per pixel
+        var bufferSize = stride * h;
+        var buffer = new byte[bufferSize];
 
-        // ffmpeg needs even dimensions for libx264
-        w = w % 2 == 0 ? w : w - 1;
-        h = h % 2 == 0 ? h : h - 1;
-
-        if (w <= 0 || h <= 0) return;
+        var stream = _ffmpegProcess?.StandardInput.BaseStream;
+        if (stream == null) return;
 
         while (!ct.IsCancellationRequested)
         {
             try
             {
-                using var bitmap = new Bitmap(w, h, PixelFormat.Format24bppRgb);
+                using var bitmap = new Bitmap(w, h, PixelFormat.Format32bppArgb);
                 using (var g = Graphics.FromImage(bitmap))
                 {
                     g.CopyFromScreen(x, y, 0, 0, new System.Drawing.Size(w, h));
                 }
 
-                var path = Path.Combine(_framesDir!, $"frame_{_frameCount:D6}.bmp");
-                bitmap.Save(path, ImageFormat.Bmp);
+                // Extract raw pixel data
+                var bmpData = bitmap.LockBits(
+                    new Rectangle(0, 0, w, h),
+                    ImageLockMode.ReadOnly,
+                    PixelFormat.Format32bppArgb);
+
+                try
+                {
+                    // Copy row by row in case strides differ
+                    for (var row = 0; row < h; row++)
+                    {
+                        Marshal.Copy(bmpData.Scan0 + row * bmpData.Stride, buffer, row * stride, stride);
+                    }
+                }
+                finally
+                {
+                    bitmap.UnlockBits(bmpData);
+                }
+
+                stream.Write(buffer, 0, bufferSize);
                 Interlocked.Increment(ref _frameCount);
 
                 // ~10 fps
@@ -119,13 +144,9 @@ public class ScreenRecordService
 
     private static string? FindFfmpeg()
     {
-        string[] candidates =
-        [
-            "ffmpeg",
-            "ffmpeg.exe",
-        ];
+        string[] candidates = ["ffmpeg", "ffmpeg.exe"];
 
-        // Also search common install locations
+        // Search WinGet packages
         var wingetPackages = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Microsoft", "WinGet", "Packages");
