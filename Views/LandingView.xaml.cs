@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 
 namespace Pam.Views;
 
@@ -11,9 +10,9 @@ public partial class LandingView : UserControl
         InitializeComponent();
     }
 
-    private void AppItem_Click(object sender, MouseButtonEventArgs e)
+    private void AppItem_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: AppEntry entry })
+        if (sender is Button { DataContext: AppEntry entry })
         {
             var mainWindow = (MainWindow)Window.GetWindow(this)!;
             mainWindow.NavigateTo(entry.Id);

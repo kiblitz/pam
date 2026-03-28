@@ -11,6 +11,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _claudeUsageVm;
     private readonly LandingView _landingView;
     private readonly ClaudeUsageView _claudeUsageView;
+    private bool _isHome;
 
     private static readonly List<AppEntry> Apps =
     [
@@ -48,6 +49,10 @@ public partial class MainWindow : Window
 
     public void NavigateTo(string id)
     {
+        _isHome = id == "home";
+        HomeMenuItem.Visibility = _isHome ? Visibility.Collapsed : Visibility.Visible;
+        HomeSeparator.Visibility = _isHome ? Visibility.Collapsed : Visibility.Visible;
+
         ContentArea.Content = id switch
         {
             "claude-usage" => _claudeUsageView,
@@ -61,7 +66,6 @@ public partial class MainWindow : Window
     }
 
     private void Home_Click(object sender, RoutedEventArgs e) => NavigateTo("home");
-    private void ClaudeUsage_Click(object sender, RoutedEventArgs e) => NavigateTo("claude-usage");
     private void Exit_Click(object sender, RoutedEventArgs e) => Close();
 }
 

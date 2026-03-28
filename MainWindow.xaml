@@ -13,10 +13,8 @@
 
     <Window.ContextMenu>
         <ContextMenu>
-            <MenuItem Header="Home" Click="Home_Click"/>
-            <Separator/>
-            <MenuItem Header="Claude Usage" Click="ClaudeUsage_Click"/>
-            <Separator/>
+            <MenuItem x:Name="HomeMenuItem" Header="Home" Click="Home_Click"/>
+            <Separator x:Name="HomeSeparator"/>
             <MenuItem Header="Exit" Click="Exit_Click"/>
         </ContextMenu>
     </Window.ContextMenu>
