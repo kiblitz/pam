@@ -3,7 +3,6 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Pam.Services;
 using Pam.Views;
@@ -13,6 +12,14 @@ namespace Pam.ViewModels;
 public class ScreenshotViewModel : INotifyPropertyChanged
 {
     private readonly ScreenRecordService _recorder = new();
+    private readonly DispatcherTimer _elapsedTimer;
+    private RecordingBorder? _borderWindow;
+
+    public ScreenshotViewModel()
+    {
+        _elapsedTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        _elapsedTimer.Tick += (_, _) => UpdateElapsed();
+    }
 
     private int _delaySeconds;
     public int DelaySeconds
@@ -38,7 +45,7 @@ public class ScreenshotViewModel : INotifyPropertyChanged
     public async Task CaptureScreenshot(Window owner)
     {
         owner.Hide();
-        await Task.Delay(150); // Let the window fully hide
+        await Task.Delay(150);
 
         var region = SelectRegion();
         if (region == null)
@@ -48,9 +55,7 @@ public class ScreenshotViewModel : INotifyPropertyChanged
         }
 
         if (DelaySeconds > 0)
-        {
             await RunCountdown(DelaySeconds);
-        }
 
         try
         {
@@ -70,18 +75,24 @@ public class ScreenshotViewModel : INotifyPropertyChanged
     {
         if (IsRecording)
         {
+            _elapsedTimer.Stop();
             IsRecording = false;
-            StatusText = "Encoding...";
 
-            var preview = _recorder.StopRecording();
-            if (preview != null)
+            _borderWindow?.Close();
+            _borderWindow = null;
+
+            StatusText = "Encoding...";
+            var outputPath = await Task.Run(() => _recorder.StopRecording());
+
+            if (outputPath != null)
             {
-                Clipboard.SetImage(preview);
-                StatusText = "Gif saved & first frame copied!";
+                // Copy file path to clipboard so it can be pasted
+                Clipboard.SetFileDropList([outputPath]);
+                StatusText = $"Saved! ({outputPath})";
             }
             else
             {
-                StatusText = "No frames captured.";
+                StatusText = "Encoding failed (is ffmpeg installed?)";
             }
 
             owner.Show();
@@ -99,15 +110,23 @@ public class ScreenshotViewModel : INotifyPropertyChanged
         }
 
         if (DelaySeconds > 0)
-        {
             await RunCountdown(DelaySeconds);
-        }
-
-        IsRecording = true;
-        StatusText = "Recording... click Stop to finish";
-        owner.Show();
 
         _recorder.StartRecording(region.Value);
+        IsRecording = true;
+        _elapsedTimer.Start();
+
+        // Show border around recording region
+        _borderWindow = new RecordingBorder(region.Value);
+        _borderWindow.Show();
+
+        owner.Show();
+    }
+
+    private void UpdateElapsed()
+    {
+        var elapsed = _recorder.Elapsed;
+        StatusText = $"Recording {elapsed:mm\\:ss\\.f}";
     }
 
     private static Rect? SelectRegion()

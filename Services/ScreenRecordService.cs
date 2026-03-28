@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -13,52 +13,81 @@ namespace Pam.Services;
 public class ScreenRecordService
 {
     private CancellationTokenSource? _cts;
-    private List<(byte[] PngData, int DelayMs)>? _frames;
     private Rect _region;
-    private DateTime _lastFrameTime;
+    private string? _framesDir;
+    private int _frameCount;
+    private DateTime _startTime;
 
     public bool IsRecording => _cts != null;
+    public TimeSpan Elapsed => IsRecording ? DateTime.UtcNow - _startTime : TimeSpan.Zero;
 
     public void StartRecording(Rect region)
     {
         _region = region;
-        _frames = [];
-        _cts = new CancellationTokenSource();
-        _lastFrameTime = DateTime.UtcNow;
+        _frameCount = 0;
+        _startTime = DateTime.UtcNow;
 
+        _framesDir = Path.Combine(Path.GetTempPath(), "Pam", $"rec-{DateTime.Now:yyyyMMdd-HHmmss}");
+        Directory.CreateDirectory(_framesDir);
+
+        _cts = new CancellationTokenSource();
         Task.Run(() => CaptureLoop(_cts.Token));
     }
 
-    public BitmapSource? StopRecording()
+    public string? StopRecording()
     {
-        if (_cts == null || _frames == null)
+        if (_cts == null || _framesDir == null)
             return null;
 
         _cts.Cancel();
         _cts.Dispose();
         _cts = null;
 
-        if (_frames.Count == 0)
+        if (_frameCount == 0)
             return null;
 
-        var gifBytes = EncodeGif(_frames);
-        _frames = null;
+        var outputDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Pam");
+        Directory.CreateDirectory(outputDir);
+        var outputPath = Path.Combine(outputDir, $"recording-{DateTime.Now:yyyyMMdd-HHmmss}.mp4");
 
-        // Copy gif to clipboard as an image (first frame) and also save the gif
-        var gifPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Pam", $"recording-{DateTime.Now:yyyyMMdd-HHmmss}.gif");
+        var ffmpegPath = FindFfmpeg();
+        if (ffmpegPath == null)
+            return null;
 
-        var dir = Path.GetDirectoryName(gifPath)!;
-        if (!Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
+        var args = $"-framerate 10 -i \"{_framesDir}\\frame_%06d.png\" -c:v libx264 -pix_fmt yuv420p -y \"{outputPath}\"";
 
-        File.WriteAllBytes(gifPath, gifBytes);
+        var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = ffmpegPath,
+                Arguments = args,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardError = true,
+            }
+        };
 
-        // Return first frame as preview
-        using var stream = new MemoryStream(gifBytes);
-        var decoder = new GifBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
-        return decoder.Frames.Count > 0 ? decoder.Frames[0] : null;
+        process.Start();
+        process.WaitForExit(30_000);
+
+        // Clean up frames
+        try { Directory.Delete(_framesDir, true); } catch { }
+        _framesDir = null;
+
+        return process.ExitCode == 0 ? outputPath : null;
+    }
+
+    public BitmapSource? GetFirstFrame()
+    {
+        if (_framesDir == null) return null;
+        var first = Path.Combine(_framesDir, "frame_000000.png");
+        if (!File.Exists(first)) return null;
+
+        using var stream = new FileStream(first, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var decoder = new PngBitmapDecoder(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+        return decoder.Frames[0];
     }
 
     private void CaptureLoop(CancellationToken ct)
@@ -67,6 +96,10 @@ public class ScreenRecordService
         var y = (int)_region.Y;
         var w = (int)_region.Width;
         var h = (int)_region.Height;
+
+        // ffmpeg needs even dimensions for libx264
+        w = w % 2 == 0 ? w : w - 1;
+        h = h % 2 == 0 ? h : h - 1;
 
         if (w <= 0 || h <= 0) return;
 
@@ -80,17 +113,9 @@ public class ScreenRecordService
                     g.CopyFromScreen(x, y, 0, 0, new System.Drawing.Size(w, h));
                 }
 
-                using var ms = new MemoryStream();
-                bitmap.Save(ms, ImageFormat.Png);
-
-                var now = DateTime.UtcNow;
-                var delayMs = (int)(now - _lastFrameTime).TotalMilliseconds;
-                _lastFrameTime = now;
-
-                lock (_frames!)
-                {
-                    _frames.Add((ms.ToArray(), Math.Max(delayMs, 33)));
-                }
+                var path = Path.Combine(_framesDir!, $"frame_{_frameCount:D6}.png");
+                bitmap.Save(path, ImageFormat.Png);
+                Interlocked.Increment(ref _frameCount);
 
                 // ~10 fps
                 Thread.Sleep(100);
@@ -102,20 +127,39 @@ public class ScreenRecordService
         }
     }
 
-    private static byte[] EncodeGif(List<(byte[] PngData, int DelayMs)> frames)
+    private static string? FindFfmpeg()
     {
-        using var output = new MemoryStream();
-        var encoder = new GifBitmapEncoder();
+        // Check common locations
+        string[] candidates =
+        [
+            "ffmpeg",
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Microsoft", "WinGet", "Links", "ffmpeg.exe"),
+            @"C:\ProgramData\chocolatey\bin\ffmpeg.exe",
+        ];
 
-        foreach (var (pngData, _) in frames)
+        foreach (var candidate in candidates)
         {
-            using var ms = new MemoryStream(pngData);
-            var pngDecoder = new PngBitmapDecoder(ms, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
-            if (pngDecoder.Frames.Count > 0)
-                encoder.Frames.Add(pngDecoder.Frames[0]);
+            try
+            {
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = candidate,
+                        Arguments = "-version",
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        RedirectStandardOutput = true,
+                    }
+                };
+                process.Start();
+                process.WaitForExit(3000);
+                if (process.ExitCode == 0) return candidate;
+            }
+            catch { }
         }
 
-        encoder.Save(output);
-        return output.ToArray();
+        return null;
     }
 }
