@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -21,9 +20,6 @@ public class ScreenshotViewModel : INotifyPropertyChanged
     {
         _elapsedTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         _elapsedTimer.Tick += (_, _) => UpdateElapsed();
-
-        AudioDevices = ["(none)", .. ScreenRecordService.ListAudioDevices()];
-        SelectedAudioDevice = AudioDevices.Count > 1 ? AudioDevices[1] : AudioDevices[0];
     }
 
     private int _delaySeconds;
@@ -47,14 +43,7 @@ public class ScreenshotViewModel : INotifyPropertyChanged
         private set => SetField(ref _isRecording, value);
     }
 
-    public List<string> AudioDevices { get; }
 
-    private string _selectedAudioDevice = "(none)";
-    public string SelectedAudioDevice
-    {
-        get => _selectedAudioDevice;
-        set => SetField(ref _selectedAudioDevice, value);
-    }
 
     public async Task CaptureScreenshot(Window owner)
     {
@@ -125,8 +114,7 @@ public class ScreenshotViewModel : INotifyPropertyChanged
         if (DelaySeconds > 0)
             await RunCountdown(DelaySeconds);
 
-        var audioDevice = SelectedAudioDevice == "(none)" ? null : SelectedAudioDevice;
-        var started = _recorder.StartRecording(region.Value, audioDevice);
+        var started = _recorder.StartRecording(region.Value, includeAudio: true);
 
         if (!started)
         {
