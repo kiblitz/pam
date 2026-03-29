@@ -43,6 +43,12 @@ public class ScreenshotViewModel : INotifyPropertyChanged
         private set => SetField(ref _isRecording, value);
     }
 
+    private int _fps = 90;
+    public int Fps
+    {
+        get => _fps;
+        set => SetField(ref _fps, value);
+    }
 
 
     public async Task CaptureScreenshot(Window owner)
@@ -114,7 +120,7 @@ public class ScreenshotViewModel : INotifyPropertyChanged
         if (DelaySeconds > 0)
             await RunCountdown(DelaySeconds);
 
-        var started = _recorder.StartRecording(region.Value, includeAudio: true);
+        var started = _recorder.StartRecording(region.Value, includeAudio: true, fps: Fps);
 
         if (!started)
         {

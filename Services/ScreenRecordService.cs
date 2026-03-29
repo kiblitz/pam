@@ -23,7 +23,7 @@ public class ScreenRecordService
     public bool IsRecording => _ffmpegProcess != null && !_ffmpegProcess.HasExited;
     public TimeSpan Elapsed => IsRecording ? DateTime.UtcNow - _startTime : TimeSpan.Zero;
 
-    public bool StartRecording(Rect region, bool includeAudio)
+    public bool StartRecording(Rect region, bool includeAudio, int fps = 90)
     {
         var ffmpegPath = FindFfmpeg();
         if (ffmpegPath == null)
@@ -49,7 +49,7 @@ public class ScreenRecordService
 
         // Start video-only capture with ffmpeg
         var videoTarget = includeAudio ? _videoPath : _outputPath;
-        var args = $"-f gdigrab -framerate 60 -offset_x {(int)region.X} -offset_y {(int)region.Y} " +
+        var args = $"-f gdigrab -framerate {fps} -offset_x {(int)region.X} -offset_y {(int)region.Y} " +
                    $"-video_size {w}x{h} -i desktop " +
                    $"-c:v libx264 -crf 14 -preset ultrafast -pix_fmt yuv420p " +
                    $"-y \"{videoTarget}\"";

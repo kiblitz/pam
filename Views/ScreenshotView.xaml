@@ -8,7 +8,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="6"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="8"/>
+            <RowDefinition Height="6"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
@@ -53,34 +53,41 @@
                        VerticalAlignment="Center" Margin="2,0,0,0" Text="s"/>
         </StackPanel>
 
-        <!-- Row 4 intentionally empty (audio always enabled) -->
+        <!-- Capture button -->
+        <Button Grid.Row="4" Click="Capture_Click" Cursor="Hand">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="#33FFFFFF" CornerRadius="8" Padding="8,6"
+                            x:Name="Bg" HorizontalAlignment="Stretch">
+                        <TextBlock Text="Capture" Foreground="#DDFFFFFF"
+                                   FontSize="12" HorizontalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="#44FFFFFF"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
 
-        <!-- Action buttons -->
-        <Grid Grid.Row="6">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="8"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <Button Grid.Column="0" Click="Capture_Click" Cursor="Hand">
-                <Button.Template>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="#33FFFFFF" CornerRadius="8" Padding="8,6"
-                                x:Name="Bg" HorizontalAlignment="Stretch">
-                            <TextBlock Text="Capture" Foreground="#DDFFFFFF"
-                                       FontSize="12" HorizontalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bg" Property="Background" Value="#44FFFFFF"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Button.Template>
-            </Button>
-
-            <Button Grid.Column="2" Click="Record_Click" Cursor="Hand">
+        <!-- Record row: button + fps input -->
+        <DockPanel Grid.Row="6">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
+                        Margin="8,0,0,0">
+                <TextBox x:Name="FpsInput" Text="90"
+                         Width="30" FontSize="11"
+                         Foreground="#DDFFFFFF" Background="#22FFFFFF"
+                         BorderBrush="#44FFFFFF" BorderThickness="1"
+                         CaretBrush="White" Padding="4,2"
+                         HorizontalContentAlignment="Right"
+                         TextChanged="FpsInput_TextChanged"
+                         GotFocus="FpsInput_GotFocus"
+                         PreviewMouseLeftButtonDown="FpsInput_PreviewMouseDown"/>
+                <TextBlock Foreground="#AAFFFFFF" FontSize="11"
+                           VerticalAlignment="Center" Margin="2,0,0,0" Text="fps"/>
+            </StackPanel>
+            <Button Click="Record_Click" Cursor="Hand">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{Binding IsRecording, Converter={StaticResource RecordingBrushConverter}}"
@@ -99,7 +106,7 @@
                     </ControlTemplate>
                 </Button.Template>
             </Button>
-        </Grid>
+        </DockPanel>
 
         <!-- Status -->
         <TextBlock Grid.Row="8"
